@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Teapot Texture</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+    </head>
+    <body>
+        <script src="js/jquery-3.2.1.min.js"></script>
+        
+        <script src="js/threePatched.js"></script>
+        <script src="js/dat.gui.min.js"></script>
+        <script src="js/OrbitControls.js"></script>
+        
+        <script id="vertexShader" type="x-shader/x-vertex">
+            precision mediump float; 
+
+            varying vec3 vecNormal; 
+            varying vec2 vUv;
+            uniform float uEdge;
+            void main() {
+                vecNormal = normalMatrix * normal;
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+            }
+        </script>
+        <script id="fragmentShader" type="x-shader/x-fragment">
+            #extension GL_OES_standard_derivatives : enable
+
+            precision mediump float;
+
+            uniform vec3 color1;
+            uniform vec3 color2;
+            uniform vec3 color3;
+            uniform vec3 color4;
+            uniform float uScale;
+            uniform float uEdge;
+            varying vec2 vUv;
+            varying vec3 vecNormal;
+            struct DirectionalLight {
+                    vec3 direction;
+                    vec3 color;
+                    int shadow;
+                    float shadowBias;
+                    float shadowRadius;
+                    vec2 shadowMapSize;
+                 };
+            uniform DirectionalLight directionalLights[ NUM_DIR_LIGHTS ];
+            uniform vec3 ambientLightColor;
+
+            float mySign(vec2 p1, vec2 p2, vec2 p3){
+                return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+            }
+
+            bool inRegion(vec2 pt, vec2 p1, vec2 p2, vec2 p3){
+                bool b1, b2, b3;
+
+                b1 = mySign(pt, p1, p2) < 0.0;
+                b2 = mySign(pt, p2, p3) < 0.0;
+                b3 = mySign(pt, p3, p1) < 0.0;
+                return ((b1 == b2) && (b2 == b3));
+            }
+
+
+            bool inRegion(vec2 pt, vec2 p1, vec2 p2, vec2 p3, float scale){
+                return inRegion(pt,p1*scale,p2*scale,p3*scale);
+            }
+
+
+            void main() {
+
+
+                vec4 sumDirLights = vec4(0.0, 0.0, 0.0, 1.0);
+                for(int i = 0; i < NUM_DIR_LIGHTS; i++) {
+                    vec3 dir = directionalLights[i].direction;
+                    sumDirLights.rgb += clamp(dot(dir, vecNormal), 0.0, 1.0) * directionalLights[i].color;
+                }
+                sumDirLights.rgb+=ambientLightColor;
+                vec2 center = -1.0 + 2.0 * vUv;
+                vec2 uv = vUv*uScale;
+                int state = 0;
+                float scaler = 1.0;
+                vec2 p = vec2(fract(uv.x),fract(uv.y));
+                float f1 = (p.x-0.3)*(p.x-0.75)*(p.y-0.2)*(p.y-0.8) ;
+                float f2 = (p.x-0.3)*(p.x-0.75)*(p.x-1.0) * (p.y-0.2)* (p.y-0.8);
+                float f3 = 1.0;
+                float f = f1 * f2 * f3;
+                float, grad, d, edgeFactor;
+                vec3 finalColor;
+                
+                if(
+                    ((p.y > 0.8 && p.y < 1.0) && (p.x > 0.75 && p.x < 1.0)) ||
+                    ((p.y > 0.8 && p.y < 1.0) && (p.x > 0.0 && p.x < 0.3)) ||
+                    ((p.y > 0.0 && p.y < 0.2) && (p.x > 0.75 && p.x < 1.0)) ||
+                    ((p.y > 0.0 && p.y < 0.2) && (p.x > 0.0 && p.x < 0.3))
+                ){
+                    state = 1;
+                    grad = length(vec2(dFdx(f),dFdy(f)));
+                    d = uEdge * grad;
+                    edgeFactor = smoothstep(-d,d,f);
+                    finalColor = mix(color1,color4,edgeFactor);
+                }
+                else if(
+                    (p.y > 0.2 && p.y < 0.8) && (p.x > 0.3 && p.x < 0.75)
+                ){
+                    state = 2;
+                    grad = length(vec2(dFdx(f),dFdy(f)));
+                    d = uEdge * grad;
+                    edgeFactor = smoothstep(-d,d,f);
+                    finalColor = mix(color2,color3,edgeFactor);
+                }
+                else if(
+                    inRegion(p,vec2(0.3,0.8),vec2(0.3,0.2),vec2(0.0,0.48),scaler) ||
+                    inRegion(p,vec2(0.75,0.2),vec2(0.75,0.8),vec2(1.0,0.48),scaler) ||
+                    inRegion(p,vec2(0.53, 1.0),vec2(0.22,0.71),vec2(0.8,0.74),scaler) ||
+                    inRegion(p,vec2(0.53, 0.0),vec2(0.2,0.3),vec2(0.8,0.26),scaler)
+                ) {
+                   state = 3; 
+                   grad = length(vec2(dFdx(f),dFdy(f)));
+                   d = uEdge * grad;
+                   edgeFactor = smoothstep(-d,d,f);
+                   finalColor = mix(color3,color2,edgeFactor);
+                }
+                else {
+                    state = 4;
+                    grad = length(vec2(dFdx(f),dFdy(f)));
+                    d = uEdge * grad;
+                    edgeFactor = smoothstep(-d,d,f);
+                    finalColor = mix(color4,color1,edgeFactor);
+                }
+
+                if(state == 1){
+                    gl_FragColor = vec4(finalColor, 1.0)*sumDirLights;
+                }
+                else if(state == 2){
+                    gl_FragColor = vec4(finalColor, 1.0)*sumDirLights;
+                }
+                else if(state == 3){
+                    gl_FragColor = vec4(finalColor, 1.0)*sumDirLights;
+                }
+                else{
+                    gl_FragColor = vec4(finalColor, 1.0)*sumDirLights;
+                }
+                //vec3 finalColor = mix(color1,color2,edgeFactor);
+                //gl_FragColor = vec4(finalColor,1.0)*sumDirLights;
+            }
+       </script>
+        <script src="js/teapot.js"></script>
+    </body>
+</html>
