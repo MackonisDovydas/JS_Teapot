@@ -2,9 +2,9 @@
 
 4 užduotis:
 
-*Parašyti fragmentų šešėliuoklę generuojančią nuo rezoliucijos nepriklausomą tekstūrą.
+* Parašyti fragmentų šešėliuoklę generuojančią nuo rezoliucijos nepriklausomą tekstūrą.
 
-*Ant arbatinuko su difuziniu apšvietimu uždėti siaurą nurodytos tekstūros juostelę, kaip parodyta paveiksliuke:
+* Ant arbatinuko su difuziniu apšvietimu uždėti siaurą nurodytos tekstūros juostelę, kaip parodyta paveiksliuke:
 
 
 ![alt tag](https://raw.githubusercontent.com/MackonisDovydas/JS_Teapot/master/pictures/proceduralTexture.PNG)
